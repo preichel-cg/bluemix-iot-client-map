@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="js/jquery.min.js"></script>
+<script src="js/bootstrap.min.js"></script>
+<script src="js/reconnecting-websocket.min.js"></script>
+<script src="js/leaflet.js"></script>
+<script src="js/Leaflet.MakiMarkers.js"></script>
+<script src="js/MovingMarker.js"></script>
+<script src="js/TrafficMonitor.js"></script>
+<script src="js/jquery-1.10.2.js"></script>
+<title>London Traffic Control</title>
+<link rel="stylesheet" href="css/bootstrap.min.css" />
+<link rel="stylesheet" href="css/leaflet.css" />
+
+<link rel="stylesheet" href="css/style.css" />
+<script>
+	var traffic = TrafficMonitor({
+		map : "map",
+		controls : false,
+		latitude : 51.530784, //48.128,
+		longitude :-0.102517, //11.670,
+		zoom : 15,
+		zoomMinus : 8,
+		zoomPlus : 3
+	});
+
+	var wsOptions = {
+		debug : true,
+		reconnectInterval : 1000,
+		maxReconnectInterval : 10000,
+		maxReconnectAttempts : 10
+	};
+
+	//Enter the path of Websocket 
+	var websocket = new ReconnectingWebSocket(
+			"ws://noderedsolutionhackathon.mybluemix.net/ws", null, wsOptions);
+	websocket.onmessage = function(e) {
+		var d = JSON.parse(e.data).d;
+		if (d.hasOwnProperty('vin')) {
+			traffic.update(d);
+		}
+	};
+
+	//Send the position of emergency (lat und lng) to the REST service that you defined by clicking on the map 
+	traffic.setClickAction(function(lat, lng, id) {
+
+		var location = {
+			cmd : "emergency",
+			emergencyID : id,
+			latitude : lat,
+			longitude : lng
+		};
+
+		$.ajax({
+			url : 'http://' + window.location.host + '/postEmergencyPosition',
+			type : 'POST',
+			data : JSON.stringify(location),
+			dataType : 'json',
+			contentType : "application/json; charset=utf-8"
+		});
+	});
+
+	window.addEventListener("load", traffic.init, false);
+
+	$(document).ready(function() {
+
+		traffic.init();
+
+	});
+</script>
+</head>
+<body>
+	<nav class="navbar navbar-default navbar-static-top">
+		<div class="container">
+			<div class="navbar-header">
+				<button type="button" class="navbar-toggle collapsed"
+					data-toggle="collapse" data-target="#fhue" aria-expanded="false">
+					<span class="sr-only">Toggle navigation</span> <span
+						class="icon-bar"></span> <span class="icon-bar"></span> <span
+						class="icon-bar"></span>
+				</button>
+				<a class="navbar-brand" href="#"><img
+					src="images/capgeminiLogo.png"></a>
+			</div>
+		</div>
+	</nav>
+	<div class="my-tab-pane" id="section-1">
+		<div class="container">
+			<div class="row">
+				<div class="col-sm-12">
+					<h1>London Traffic Control</h1>
+				</div>
+			</div>
+		</div>
+		<div class="container">
+			<div class="row">
+				<div class="col-sm-12"></div>
+			</div>
+			<div id="map"></div>
+		</div>
+	</div>
+</body>
+</body>
+</html>

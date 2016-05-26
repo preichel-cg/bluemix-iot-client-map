@@ -1,0 +1,9 @@
+applications:
+- disk_quota: 1024M
+  host: routewebapplication
+  name: RouteWebApplication
+  domain: mybluemix.net
+  path: RouteWebApplication.war
+  instances: 1
+  memory: 512M
+ 

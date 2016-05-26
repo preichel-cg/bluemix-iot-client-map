@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project basedir="." default="build" name="RouteWebApplication">
+    <property environment="env"/>
+    <property name="srcDir" value="."/>
+    <property name="debuglevel" value="source,lines,vars"/>
+    <property name="target" value="1.5"/>
+    <property name="source" value="1.5"/>
+    <condition property="ARCHIVE_DIR" value="${env.ARCHIVE_DIR}" else=".">
+        <isset property="env.ARCHIVE_DIR" />
+    </condition>
+	<property name="warname" value= "RouteWebApplication.war"/>
+    <path id="classpathDir">
+        <pathelement location="bin"/>
+    	<pathelement location="WebContent/WEB-INF/lib/commons-codec-1.9.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/commons-io-2.4.jar"/>
+        <pathelement location="WebContent/WEB-INF/lib/commons-logging-1.2.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/commons-net-3.3.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/fluent-hc-4.5.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/graphhopper-0.4-20150128.170053-90.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/gson-2.3.1.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/httpclient-4.5.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/httpclient-cache-4.5.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/httpclient-win-4.5.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/httpcore-4.4.1.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/httpmime-4.5.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/iotBasic.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/jna-4.1.0.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/jna-platform-4.1.0.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/joda-time-2.6.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/json-20141113.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/log4j-1.2.17.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/log4j-core-2.3.jar"/> 
+    	<pathelement location="WebContent/WEB-INF/lib/org.eclipse.paho.client.mqttv3-1.0.2.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/org.eclipse.paho.mqtt.utility-1.0.2.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/osmosis-osm-binary-0.44.1.jar"/>	
+    	<pathelement location="WebContent/WEB-INF/lib/protobuf-java-2.6.1.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/slf4j-api-1.7.12.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/slf4j-log4j12-1.7.12.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/trove4j-3.0.3.jar"/> 
+    	<pathelement location="WebContent/WEB-INF/lib/com.ibm.ws.javaee.jaxrs.1.1_1.0.1.jar"/> 
+    	<pathelement location="WebContent/WEB-INF/lib/servlet-api.jar"/>
+    	<pathelement location="WebContent/WEB-INF/lib/com.ibm.json4j_1.0.9.jar"/>
+    </path>
+    <target name="init">
+        <mkdir dir="bin"/>
+    </target>
+    <target name="clean">
+        <delete dir="bin"/>
+		<delete file="${ARCHIVE_DIR}/${warname}" />		
+    </target>
+    <target name="build" depends="build-project,build-war"/>
+    <target name="cleanall" depends="clean"/>
+    <target name="build-project" depends="clean,init">
+    	<copy todir="${ARCHIVE_DIR}">
+	      <fileset file="manifest.yml" />
+	    </copy>
+        <echo message="${ant.project.name}: ${ant.file}"/>
+        <javac debug="true" debuglevel="${debuglevel}" destdir="bin" source="${source}" target="${target}"
+		includeantruntime="false">
+            <src path="src"/>
+            <classpath refid="classpathDir"/>
+        </javac>
+    </target>
+ 
+   <target name="build-war" depends="build-project">
+	  <war destfile="${ARCHIVE_DIR}/${warname}" webxml="WebContent/WEB-INF/web.xml">
+	  	<webinf dir="WebContent/WEB-INF">
+	  		<include name="resources"/>
+	    </webinf>
+	  	<fileset dir="WebContent">
+	  		<include name="**/*"/>
+	    </fileset>
+	  	<classes dir="bin"/>
+	  </war>
+   </target>
+
+</project>
