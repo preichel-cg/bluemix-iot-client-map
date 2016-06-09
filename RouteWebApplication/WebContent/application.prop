@@ -1,8 +1,8 @@
 # Unique application id
-id = Appcm
+id = TODO use case 1 Enter a unique application id
 # Authentication method
 auth-method = apikey
 # API-Key
-auth-key = a-0yngjl-vomea4erlg
+auth-key = TODO use case 1 Enter your api-key
 # API-Token
-auth-token = Glc_CpuEI+o()L-Y5f
+auth-token = TODO use case 1 Enter your api-token
