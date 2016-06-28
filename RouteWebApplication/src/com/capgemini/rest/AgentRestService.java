@@ -203,7 +203,7 @@ public class AgentRestService {
 		// Publish a command to the device with the id aca21322819c containing
 		// the vin of the ambulance which must be
 		// drive to the emergency location and the location of the emergency
-		AgentListener.getAgent().getClient().publishCommand("Raspberry", "aca21322819c", emergencyCommand, data, 0);
+		AgentListener.getAgent().getClient().publishCommand("RaspberryPi", "aca21322819c", emergencyCommand, data, 0);
 
 	}
 
