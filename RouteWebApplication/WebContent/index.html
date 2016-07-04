@@ -20,23 +20,24 @@
 	var traffic = TrafficMonitor({
 		map : "map",
 		controls : false,
-		latitude : 51.530784, 
-		longitude :-0.102517, 
+		latitude : 51.530784,
+		longitude : -0.102517,
 		zoom : 15,
 		zoomMinus : 8,
 		zoomPlus : 3
 	});
 
 	var wsOptions = {
-		debug : true,
+		debug : false,
 		reconnectInterval : 1000,
 		maxReconnectInterval : 10000,
 		maxReconnectAttempts : 10
 	};
 
+
 	// TODO use case 1 Enter the path of configured Websocket in your Node-RED instance
 	var websocket = new ReconnectingWebSocket(
-			"ws://your_websocket_url", null, wsOptions);
+			"ws://iot-connector.mybluemix.net/ws/car-events", null, wsOptions);
 	websocket.onmessage = function(e) {
 		var d = JSON.parse(e.data).d;
 		if (d.hasOwnProperty('vin')) {
@@ -44,33 +45,74 @@
 		}
 	};
 
+	var geosocket = new ReconnectingWebSocket(
+			"ws://iot-connector.mybluemix.net/ws/geo-events", null, wsOptions);
+	geosocket.onmessage = function(e) {
+		var d = JSON.parse(e.data);
+		console.log(d);
+		if (d.hasOwnProperty('id')) {
+			if (d.eventType == "Entry") {
+				traffic.setAlerted(d.id, true);
+			} else if (d.eventType == "Exit") {
+				traffic.setAlerted(d.id, false);
+			}
+		}
+	};
+
 	// Send the position of emergency (lat und lng) to the REST service that you defined by clicking on the map 
-	traffic.setClickAction(function(lat, lng, id) {
+	traffic
+			.setClickAction(function(lat, lng, id) {
 
-		var location = {
-			cmd : "emergency",
-			emergencyID : id,
-			latitude : lat,
-			longitude : lng
-		};
+				var location = {
+					cmd : "emergency",
+					emergencyID : id,
+					latitude : lat,
+					longitude : lng
+				};
 
-		// TODO use case 2 Enter the URL of your defined REST service
-		$.ajax({
-			url : 'url of your rest service',
-			type : 'POST',
-			data : JSON.stringify(location),
-			dataType : 'json',
-			contentType : "application/json; charset=utf-8"
-		});
-	});
+				var region = {
+					region : "Emergency".concat(id),
+					latitude : lat,
+					longitude : lng,
+					radius : "100000"
+				};
+
+				// TODO use case 2 Enter the URL of your defined REST service
+				$
+						.ajax({
+							url : 'http://group1-routewebapplication.mybluemix.net/routewebapplication/emergency/',
+							type : 'POST',
+							data : JSON.stringify(location),
+							dataType : 'json',
+							contentType : "application/json; charset=utf-8"
+						});
+
+				//TODO: Draw circly on map which indicates region
+				$
+						.ajax({
+							url : 'http://group1-routewebapplication.mybluemix.net/routewebapplication/addregion/',
+							type : 'POST',
+							data : JSON.stringify(region),
+							dataType : 'json',
+							contentType : "application/json; charset=utf-8"
+						});
+			});
 
 	window.addEventListener("load", traffic.init, false);
 
-	$(document).ready(function() {
+	$(document)
+			.ready(
+					function() {
 
-		traffic.init();
+						$
+								.ajax({
+									url : 'http://group1-routewebapplication.mybluemix.net/routewebapplication/startgeo/',
+									type : 'POST',
+								});
 
-	});
+						traffic.init();
+
+					});
 </script>
 </head>
 <body>
