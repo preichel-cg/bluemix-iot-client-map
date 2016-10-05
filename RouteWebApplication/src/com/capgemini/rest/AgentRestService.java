@@ -1,12 +1,5 @@
 package com.capgemini.rest;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.logging.Logger;
 
 import javax.ws.rs.Consumes;
@@ -14,40 +7,22 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.MediaType;
 
-import com.capgemini.mqtt.AgentEventCallback;
 import com.capgemini.mqtt.AgentListener;
-import com.capgemini.mqtt.Ambulance;
-import com.capgemini.mqtt.CurrentLocation;
-import com.capgemini.mqtt.RouteCalculator;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.ibm.iotf.client.AbstractClient;
-import com.ibm.json.java.JSONObject;
 
 /**
  * 
  * @author cmammado
  *
  */
-//Specify the path to the REST-service
+// Specify the path to the REST-service
 @Path("/")
 public class AgentRestService {
 
 	private static final String CLASS_NAME = AbstractClient.class.getName();
 	private static final Logger LOG = Logger.getLogger(CLASS_NAME);
-
-	private JSONObject emergencyLocation;
-	// Latitude of emergency location
-	private Double emergencyLatitude;
-	// Longitude of emergency location
-	private Double emergencyLongitude;
-	// Vehicle identification number (vin) of the closest ambulance to the
-	// emergency location
-	private String closestAmbulance;
-
-	private String emergencyID;
-	// private boolean freeAmbulance;
-
-	private ArrayList<HashMap<String, CurrentLocation>> emergencies = new ArrayList<HashMap<String, CurrentLocation>>();
 
 	/**
 	 * This method will be called each time an emergency happens
@@ -59,151 +34,20 @@ public class AgentRestService {
 	@POST
 	@Consumes(MediaType.APPLICATION_JSON)
 	public void getEmergencyLocation(String msg) {
-		// Get the location of emergency from msg
-		try {
-			emergencyLocation = JSONObject.parse(msg);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		
+		JsonObject data = new JsonParser().parse(msg).getAsJsonObject();
 		// Get the latitude of emergency location
-		emergencyLatitude = (Double) emergencyLocation.get("latitude");
+		Double emergencyLatitude = data.get("latitude").getAsDouble();
 		// Get the longitude of the emergency location
-		emergencyLongitude = (Double) emergencyLocation.get("longitude");
-		// Get the id of emergency, this will be needed to remove the marker from the map when the ambulance reached the emergency location
-		emergencyID = emergencyLocation.get("emergencyID").toString();
+		Double emergencyLongitude = data.get("longitude").getAsDouble();
 
-		// if there is a free ambulance, find the closest one to the emergency location
-		if (getAmbulanceState())
-			findTheClosestAmbulance(emergencyLatitude, emergencyLongitude);
-		else {
-			// Otherwise if there is not a free ambulance, add the emergency in a queue
-			HashMap<String, CurrentLocation> emergency = new HashMap<String, CurrentLocation>();
-			emergency.put(emergencyID, new CurrentLocation(emergencyLatitude, emergencyLongitude));
-			emergencies.add(emergency);
-
-			// Find the closest ambulance for all emergencies in the queue
-			while (emergencies.size() > 0) {
-				// Check the ambulance state each 5 seconds, if there are free ambulances, find the closest one to the first emergency in the queue
-				while (!getAmbulanceState()) {
-					try {
-						Thread.sleep(5000);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-
-				}
-				//Find the closest ambulance to the first emergency in the queue
-				for (Entry<String, CurrentLocation> entry : emergencies.get(0).entrySet()) {
-					findTheClosestAmbulance(entry.getValue().getCurrentLatitude(),
-							entry.getValue().getCurrentLongitude());
-					// Set the state of the closest ambulance to false
-					AgentEventCallback.ambulances.get(closestAmbulance).setIsFree(false);
-
-				}
-				// Remove the emergency from the queue
-				emergencies.remove(0);
-
-			}
-
-		}
-
-	}
-
-	/**
-	 * This method returns the state of ambulances
-	 * @return true, if there is a free ambulance, otherwise false
-	 */
-	public boolean getAmbulanceState() {
-
-		boolean freeAmbulance = false;
-		for (Entry<String, Ambulance> ambulance : AgentEventCallback.ambulances.entrySet()) {
-			if (ambulance.getValue().getIsFree().equals(true)) {
-				freeAmbulance = true;
-			}
-
-		}
-		return freeAmbulance;
-	}
-
-	/**
-	 * This method finds which ambulance is the closest ambulance to the
-	 * emergency location
-	 * 
-	 * @param emergencyLatitude
-	 *            the latitude of the emergency location
-	 * 
-	 * @param emergencyLongitude
-	 *            the longitude of the emergency location
-	 */
-
-	public void findTheClosestAmbulance(Double emergencyLatitude, Double emergencyLongitude) {
-		List<Double> distancesBetweenAmbulanceAndEmergency = new ArrayList<Double>();
-		// This hashmap contains the distances from each ambulance to the
-		// emergency location
-		Map<String, Double> distances = new HashMap<String, Double>();
-		// This hashmap contains ambulances
-		Map<String, Ambulance> ambulances = AgentEventCallback.ambulances;
-
-		if (ambulances.isEmpty()) {
-			LOG.info("No ambulance available:");
-		} else {
-			// Find the distance between the current location of each ambulance and
-			// the emergency location
-			for (Entry<String, Ambulance> ambulance : ambulances.entrySet()) {
-	
-				if (ambulance.getValue().getIsFree()) {
-					String vin = ambulance.getKey();
-					Double currentLatitude = ambulance.getValue().getCurrentLocation().getCurrentLatitude();
-					Double currentLongitude = ambulance.getValue().getCurrentLocation().getCurrentLongitude();
-	
-					RouteCalculator routeCalculator = new RouteCalculator();
-					routeCalculator.calcuateRoute(currentLatitude, currentLongitude, emergencyLatitude, emergencyLongitude);
-					Double distance = routeCalculator.getDistance();
-					distances.put(vin, distance);
-				}
-	
-			}
-	
-			// Add the distances between each ambulance and the emergency location
-			// to the list
-			for (Entry<String, Double> entry : distances.entrySet()) {
-				distancesBetweenAmbulanceAndEmergency.add(entry.getValue());
-			}
-	
-			// Find the closest ambulance to the emergency location
-			Object minDistance = Collections.min(distancesBetweenAmbulanceAndEmergency);
-	
-			// Get the vin (vehicle identification number) of the closest ambulance
-			for (Entry<String, Double> entry : distances.entrySet()) {
-				if (!entry.equals(null))
-					if (entry.getValue() == minDistance) {
-						closestAmbulance = entry.getKey();
-					}
-			}
-	
-			sendAmbulanceToEmergency();
-		}
-	}
-
-	/**
-	 * This method publishes a command to the device with ID "aca21322819c" and
-	 * Type "Raspberry". The published command contains the vin of the closest
-	 * ambulance, the latitude and the longitude of the emergency location
-	 */
-	public void sendAmbulanceToEmergency() {
-		String emergencyCommand = "emergencyCommand";
-		JsonObject data = new JsonObject();
-
-		data.addProperty("vin", closestAmbulance);
-		data.addProperty("emergencyLatitude", Double.toString(emergencyLatitude));
-		data.addProperty("emergencyLongitude", Double.toString(emergencyLongitude));
-		data.addProperty("emergencyID", emergencyID);
+		data.addProperty("groupId", "simulator");
+		data.addProperty("latitude", Double.toString(emergencyLatitude));
+		data.addProperty("longitude", Double.toString(emergencyLongitude));
 
 		// Publish a command to the device with the id aca21322819c containing
 		// the vin of the ambulance which must be
 		// drive to the emergency location and the location of the emergency
-		AgentListener.getAgent().getClient().publishCommand("RaspberryPi", "aca21322819c", emergencyCommand, data, 0);
+		AgentListener.getAgent().getClient().publishCommand("hospital", "hospital1", "emergency", data, 0);
 
 	}
 

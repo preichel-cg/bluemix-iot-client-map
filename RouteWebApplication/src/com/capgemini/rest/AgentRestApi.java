@@ -9,7 +9,7 @@ import javax.ws.rs.core.Application;
  *
  */
 //Specify the application path to the REST service
-@ApplicationPath("/postEmergencyPosition/*")
+@ApplicationPath("/getEmergencyLocation/*")
 public class AgentRestApi extends Application {
 
 }

@@ -3,8 +3,8 @@ var TrafficMonitor = (function(conf) {
 	if (window.$ !== undefined) {
 		conf = $.extend({
 			map : "map",
-			latitude : 51.530784,  //48.128,
-			longitude :-0.102517,  //11.670,
+			latitude : 51.530784,
+			longitude : -0.102517,
 			zoom : 15,
 			zoomMinus : 0,
 			zoomPlus : 0,
@@ -15,10 +15,10 @@ var TrafficMonitor = (function(conf) {
 	var map;
 	var cars = {};
 	var ambulances = {};
-	
+
 	var orders = {};
-	var emergencyID = 0;
-	var reached = {};
+	var circles = {};
+	var firstClicks = {};
 
 	var icon = {
 		car : L.MakiMarkers.icon({
@@ -36,16 +36,31 @@ var TrafficMonitor = (function(conf) {
 			color : "#b70132",
 			size : "l"
 		}),
-		emergency : L.MakiMarkers.icon({
+		emergencyRed : L.MakiMarkers.icon({
 			icon : "danger",
 			color : "#b70132",
 			size : "m"
-		})
+		}),
+
+		emergencyYellow : L.MakiMarkers.icon({
+			icon : "danger",
+			color : "#FFFF00",
+			size : "m"
+		}),
+
+		emergencyGreen : L.MakiMarkers.icon({
+			icon : "danger",
+			color : "#00FF00",
+			size : "m"
+		}),
 	};
 
 	function init() {
 
-		var mapConf = (conf.controls) ? {} : {
+		var mapConf = (conf.controls) ? {
+			zoomControl : false,
+			zoomAnimation : true
+		} : {
 			dragging : false,
 			zoomControl : false,
 			zoomAnimation : false,
@@ -64,15 +79,32 @@ var TrafficMonitor = (function(conf) {
 
 		map.setView(new L.LatLng(conf.latitude, conf.longitude), conf.zoom);
 		map.addLayer(osm);
+
+		L.control.zoom({
+			position : 'bottomright'
+		}).addTo(map);
+
 		map.on('click', function(e) {
+			// clickAction(e.latlng.lat, e.latlng.lng);
 			updateTarget(e.latlng.lat, e.latlng.lng);
-			//clickAction(e.latlng.lat, e.latlng.lng);
 		});
 		map.on('zoomend', function(e) {
 			map.panTo([ conf.latitude, conf.longitude ], {
 				animate : false
 			})
 		});
+	}
+
+	function updateTarget(lat, lng) {
+		var order = L.marker([ lat, lng ], {
+			icon : icon.emergencyRed
+		});
+
+		firstClicks[lat + lng] = order;
+		order.addTo(map);
+
+		clickAction(lat, lng);
+
 	}
 
 	function refresh() {
@@ -83,62 +115,87 @@ var TrafficMonitor = (function(conf) {
 		clickAction = fn;
 	}
 
-	function updateTarget(lat, lng) {
-		emergencyID = emergencyID + 1;
-		var order = orders[emergencyID];
-		if (order === undefined) {
-			order = L.marker([ lat, lng ], {
-				icon : icon.emergency
-			});
-		
-			order.addTo(map);
-			orders[emergencyID] = order;
-		}
-		
-		
-		clickAction(lat, lng, emergencyID);
-		
-	}
+	function showEmergency(emergency) {
 
-	function updateAmbulance(car) {		
+		var ambulance = ambulances[emergency.vin];
 		
-		var c = ambulances[car.vin];	
-		if (c === undefined) {
-			c = L.Marker.movingMarker([ [ car.latitude, car.longitude ] ], [],
-					{
-						icon : icon.ambulance
-					});
-		
-			reached[car.vin] = "false";	
-			c.ts = new Date();
-			c.addTo(map);
-			ambulances[car.vin] = c;
+		if (firstClicks[emergency.latitude + emergency.longitude] !== undefined) {
+			map.removeLayer(firstClicks[emergency.latitude
+					+ emergency.longitude]);
+			delete firstClicks[emergency.latitude + emergency.longitude];
+
 		}
-			
-		c.moveTo([ car.latitude, car.longitude ], (new Date() - c.ts));
-		c.ts = new Date();
-		
-		if (car.isFree == "true") {
-			c.setIcon(icon.ambulance);
-			
-			if (reached[car.vin] == "false"){
-				reached[car.vin] = "true";
-				if (car.emergencyID != -1)
-				map.removeLayer(orders[car.emergencyID]);
+
+		var status = emergency.status;
+		if (status == "OPEN") {
+			var order = orders[emergency.emergencyId];
+
+			if (order === undefined) {
+				order = L.marker([ emergency.latitude, emergency.longitude ], {
+					icon : icon.emergencyYellow
+				});
+
+				order.addTo(map);
+				orders[emergency.emergencyId] = order;
+
 			}
-			
 
-		} else {
+		} else if (status == "ONGING") {
+			var order = orders[emergency.emergencyId];
+
+			if (order === undefined) {
+				order = L.marker([ emergency.latitude, emergency.longitude ], {
+					icon : icon.emergencyGreen
+				});
+				order.addTo(map);
+			} else {
+
+				order.setIcon(icon.emergencyGreen);
+			}
+			orders[emergency.emergencyId] = order;
+			
 			var newAmbulanceIcon = L.MakiMarkers.icon({
 				icon : "hospital",
 				color : "#FFFF00",
 				size : "l"
 			});
-			
-			c.setIcon(newAmbulanceIcon);
-			reached[car.vin] = "false";
-			
+
+			ambulance.setIcon(newAmbulanceIcon);
+			ambulances[emergency.vin] = ambulance;
+
+		} else if (status == "SOLVED") {
+			if (orders[emergency.emergencyId] !== undefined) {
+				map.removeLayer(orders[emergency.emergencyId]);
+				delete orders[emergency.emergencyId];
+
+			}
+			ambulance.setIcon(icon.ambulance);
+			ambulances[emergency.vin] = ambulance;
 		}
+	}
+
+	function drawCircle(lat, lng, radius, emergencyID) {
+		var circle = L.circle([ lat, lng ], radius).addTo(map);
+		circles[emergencyID] = circle;
+	}
+
+	function updateAmbulance(car) {
+
+		var c = ambulances[car.vin];
+		if (c === undefined) {
+			c = L.Marker.movingMarker([ [ car.latitude, car.longitude ] ], [],
+					{
+						icon : icon.ambulance
+					});
+
+			c.ts = new Date();
+			c.addTo(map);
+			ambulances[car.vin] = c;
+		}
+
+		c.moveTo([ car.latitude, car.longitude ], (new Date() - c.ts));
+		c.ts = new Date();
+
 	}
 
 	function updateCar(car) {
@@ -148,7 +205,7 @@ var TrafficMonitor = (function(conf) {
 					{
 						icon : icon.car
 					});
-		
+
 			c.ts = new Date();
 			c.addTo(map);
 			cars[car.vin] = c;
@@ -157,8 +214,6 @@ var TrafficMonitor = (function(conf) {
 		c.ts = new Date();
 
 	}
-
-	
 
 	function update(car) {
 		if (car.vin.indexOf("ambulance") > -1) {
@@ -172,7 +227,7 @@ var TrafficMonitor = (function(conf) {
 		init : init,
 		setClickAction : setClickAction,
 		update : update,
-		updateTarget : updateTarget,
+		showEmergency : showEmergency,
 		refresh : refresh
 	};
 
