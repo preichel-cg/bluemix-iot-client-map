@@ -40,15 +40,13 @@ public class AgentRestService {
 		// Get the longitude of the emergency location
 		Double emergencyLongitude = data.get("longitude").getAsDouble();
 
+		// TODO practice 3: implement send emergency command to IoT
 		data.addProperty("groupId", "simulator");
 		data.addProperty("latitude", Double.toString(emergencyLatitude));
 		data.addProperty("longitude", Double.toString(emergencyLongitude));
 
-		// Publish a command to the device with the id aca21322819c containing
-		// the vin of the ambulance which must be
-		// drive to the emergency location and the location of the emergency
+		// Publish a command via IoT to the hospital device with the emergency 
 		AgentListener.getAgent().getClient().publishCommand("hospital", "hospital1", "emergency", data, 0);
-
 	}
 
 }

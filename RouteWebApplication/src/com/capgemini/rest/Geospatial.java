@@ -29,7 +29,7 @@ import com.google.gson.stream.JsonReader;
 
 /**
  * This class is used as an adapter to the geospatial service. To use the class 
- * create an instance by using the default construcutor and then call the appropriate methods.
+ * create an instance by using the default constructor and then call the appropriate methods.
  * When creating an instance the VCAP_Services environment variable will be evaluated and stored within the object.
  */
 public class Geospatial {
@@ -48,7 +48,7 @@ public class Geospatial {
 	private GeospatialAnalytics environment;
 
 	public Geospatial() {
-		// TODO: get access to environment variables
+		// FIXME: get access to environment variables
 		String vcap = "";
 		Gson gson = new Gson();
 		JsonReader reader = new JsonReader(new StringReader(vcap));

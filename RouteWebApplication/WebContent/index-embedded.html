@@ -34,8 +34,8 @@
 		maxReconnectAttempts : 10
 	};
 
-	// TODO use case 3 Enter the path of configured Websocket in your Node-RED instance 
-var websocketLocation = new ReconnectingWebSocket(
+	// TODO practice 2: Enter the path of configured Websocket for vehicle-locations in your Node-RED instance
+	var websocketLocation = new ReconnectingWebSocket(
 			"ws://noderedinstancehackathon.mybluemix.net/location", null, wsOptions);
 
  	websocketLocation.onmessage = function(e) {
@@ -47,7 +47,7 @@ var websocketLocation = new ReconnectingWebSocket(
 	
 	}; 
 	
-	
+	// TODO practice 3: Enter the path of configured Websocket for emergency-locations in your Node-RED instance
 	var websocketEmergency = new ReconnectingWebSocket(
 			"ws://noderedinstancehackathon.mybluemix.net/emergency", null, wsOptions);
  	websocketEmergency.onmessage = function(e) {
@@ -67,10 +67,9 @@ var websocketLocation = new ReconnectingWebSocket(
 			longitude : lng
 		};
 
-		// TODO use case 2 Enter the URL of your defined REST service
 		$.ajax({
-			url : 'http://' + window.location.host + '/getEmergencyLocation',
-			//url : 'http://localhost:9080/RouteWebApplication/getEmergencyLocation',
+			// TODO practice 3: set path to your own routewebapplication
+			url : 'http://routewebapplication.mybluemix.net/getEmergencyLocation',
 			type : 'POST',
 			data : JSON.stringify(location),
 			dataType : 'json',
