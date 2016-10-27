@@ -1,5 +1,5 @@
 # Unique application id
-id = routewebapp
+id = routewebappmain
 # Authentication method
 auth-method = apikey
 # API-Key
