@@ -5,5 +5,5 @@ applications:
   domain: mybluemix.net
   path: RouteWebApplication.war
   instances: 1
-  memory: 512M
+  memory: 256M
  
