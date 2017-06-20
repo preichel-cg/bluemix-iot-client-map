@@ -1,15 +1,15 @@
 # Unique application id
-id = routewebappmain
+id = routewebapp9
 # Authentication method
 auth-method = apikey
 
 # API-Key multi-use
-auth-key = a-876fe7-6qjcxyvocx
+auth-key = a-hs27zy-juuyt8qnht
 # API-Token multi-use
-auth-token = mF3R7B)a!GC0My-Pad
+auth-token = wDYpvJb5CjTQri-v4d
 
 # API-Key primary-reserved
-#auth-key = a-876fe7-uu3pcxu7ue
+#auth-key = a-hs27zy-juuyt8qnht
 # API-Token primary-reserved
-#auth-token = mgBge)y(5WXbif@azA
+#auth-token = wDYpvJb5CjTQri-v4d
 

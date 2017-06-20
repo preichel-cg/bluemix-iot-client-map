@@ -46,7 +46,9 @@ public class AgentRestService {
 		data.addProperty("longitude", Double.toString(emergencyLongitude));
 
 		// Publish a command via IoT to the hospital device with the emergency 
+		LOG.info("publishing emergency command to hospital.");
 		AgentListener.getAgent().getClient().publishCommand("hospital", "hospital1", "emergency", data, 0);
+		LOG.info("done publishing emergency command.");
 	}
 
 }
