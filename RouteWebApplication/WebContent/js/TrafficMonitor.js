@@ -20,6 +20,8 @@ var TrafficMonitor = (function(conf) {
 	var circles = {};
 	var firstClicks = {};
 
+	var currentPopupId; // Stores which vehicle or emergency (order) shows the pop-up.
+
 	var icon = {
 		car : L.MakiMarkers.icon({
 			icon : "car",
@@ -134,11 +136,18 @@ var TrafficMonitor = (function(conf) {
 				order = L.marker([ emergency.latitude, emergency.longitude ], {
 					icon : icon.emergencyYellow
 				});
-
 				order.addTo(map);
 				orders[emergency.emergencyId] = order;
-
+				order.on('mouseover', function(e) {
+					currentPopupId = emergency.emergencyId;
+					order.openPopup();
+				});
+				order.on('click', function(e) { // Could use 'popupclose' here, but not for car markers.
+					currentPopupId = "-1";
+				});
 			}
+
+			order.bindPopup("<strong>Emergency" + "<br> Status: " + emergency.status + "</strong>");
 
 		} else if (status == "ONGING") {
 			var order = orders[emergency.emergencyId];
@@ -148,11 +157,18 @@ var TrafficMonitor = (function(conf) {
 					icon : icon.emergencyGreen
 				});
 				order.addTo(map);
-			} else {
+				orders[emergency.emergencyId] = order;
+				order.on('mouseover', function(e) {
+					currentPopupId = emergency.emergencyId;
+					order.openPopup();
+				});
+				order.on('click', function(e) {
+					currentPopupId = "-1";
+				});
 
+			} else {
 				order.setIcon(icon.emergencyGreen);
 			}
-			orders[emergency.emergencyId] = order;
 			
 			var newAmbulanceIcon = L.MakiMarkers.icon({
 				icon : "hospital",
@@ -163,8 +179,11 @@ var TrafficMonitor = (function(conf) {
 			ambulance.setIcon(newAmbulanceIcon);
 			ambulances[emergency.vin] = ambulance;
 
+			order.bindPopup("<strong>Emergency" + "<br> Status: " + emergency.status + "<br> Ambulance: " + emergency.vin + "</strong>");
+
 		} else if (status == "SOLVED") {
 			if (orders[emergency.emergencyId] !== undefined) {
+				orders[emergency.emergencyId].closePopup();
 				map.removeLayer(orders[emergency.emergencyId]);
 				delete orders[emergency.emergencyId];
 
@@ -172,6 +191,13 @@ var TrafficMonitor = (function(conf) {
 			ambulance.setIcon(icon.ambulance);
 			ambulances[emergency.vin] = ambulance;
 		}
+
+		if (currentPopupId == emergency.emergencyId) {
+			order.openPopup();
+		} else {
+			order.closePopup();
+		}
+
 	}
 
 	function drawCircle(lat, lng, radius, emergencyID) {
@@ -191,10 +217,23 @@ var TrafficMonitor = (function(conf) {
 			c.ts = new Date();
 			c.addTo(map);
 			ambulances[car.vin] = c;
+			c.on('mouseover', function(e) {
+				currentPopupId = car.vin;
+				c.openPopup();
+			});
+			c.on('click', function(e) { // Cannot use 'popupclose', because that is triggered continuously by c.closePopup();
+				currentPopupId = "-1";
+			});
 		}
-
 		c.moveTo([ car.latitude, car.longitude ], (new Date() - c.ts));
 		c.ts = new Date();
+
+		if (currentPopupId == car.vin) {
+			c.bindPopup("<strong>Latitude: " + car.latitude + "<br>Longitude: " + car.longitude + "<br>VIN: " + car.vin + "<br>IsFree: " + car.isFree + "</strong>");
+			c.openPopup();
+		} else {
+			c.closePopup();
+		}
 
 	}
 
@@ -209,9 +248,23 @@ var TrafficMonitor = (function(conf) {
 			c.ts = new Date();
 			c.addTo(map);
 			cars[car.vin] = c;
+			c.on('mouseover', function(e) {
+				currentPopupId = car.vin;
+				c.openPopup();
+			});
+			c.on('click', function(e) { // Cannot use 'popupclose', because that is triggered continuously by c.closePopup();
+				currentPopupId = "-1";
+			});
 		}
 		c.moveTo([ car.latitude, car.longitude ], (new Date() - c.ts));
 		c.ts = new Date();
+
+		if (currentPopupId == car.vin) {
+			c.bindPopup("<strong>Latitude: " + car.latitude + "<br>Longitude: " + car.longitude + "<br>VIN: " + car.vin + "</strong>");
+			c.openPopup();
+		} else {
+			c.closePopup();
+		}
 
 	}
 
