@@ -20,7 +20,13 @@ var TrafficMonitor = (function(conf) {
 	var circles = {};
 	var firstClicks = {};
 
-	var icon = {
+	// Routes
+	var routesEnabled = false;
+	var ambulanceRoutes = [];
+	var carRoutes = [];
+	var lastDistance = [];  
+
+	 var icon = {
 		car : L.MakiMarkers.icon({
 			icon : "car",
 			color : "#0098cc",
@@ -216,10 +222,128 @@ var TrafficMonitor = (function(conf) {
 	}
 
 	function update(car) {
-		if (car.vin.indexOf("ambulance") > -1) {
+		if (isAmbulance(car)) {
 			updateAmbulance(car);
 		} else {
 			updateCar(car);
+		}
+
+		// Route FIXME
+		removeRouteFromPast(car); 
+	}
+
+	function isAmbulance(car) {
+		if (car.vin.indexOf("ambulance") > -1) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	// Routes
+	function drawRoute(car){
+		var l = {}
+		var lineColor = '';
+		
+		if(isAmbulance(car)){
+			l = ambulanceRoutes[car.vin];
+			lineColor = 'red';
+		} else { 
+			l = carRoutes[car.vin];
+			lineColor = 'blue';
+		}
+		
+		var latlongs = car.nodes;
+				
+		if (l === undefined) {
+			l = L.polyline(latlongs, {color: lineColor});
+			l.ts = new Date();
+			
+			if(isAmbulance(car)) {
+				ambulanceRoutes[car.vin] = l;
+			} else {
+				carRoutes[car.vin] = l;
+			}
+		}
+		
+		l.setLatLngs(latlongs);
+		l.ts = new Date();
+		
+		if(routesEnabled){
+			map.addLayer(l);
+		}
+	}
+	
+	function updateRoute(car) {
+		if(car.nodes.length < 2){ return; }
+		lastDistance[car.vin] = nodeDistance(car.nodes[0][0],car.nodes[0][1],car.nodes[1][0],car.nodes[1][1]);
+		drawRoute(car);
+	}
+	
+	function removeRouteFromPast(car) {
+		var l = {};
+		if(isAmbulance(car)){
+			l = ambulanceRoutes[car.vin];
+		} else {
+			l = carRoutes[car.vin];
+		}
+		
+		// if route is not set, skip.
+		if(l === undefined) {
+			return;
+		}
+		
+		var routes = l._latlngs;
+		var position = [car.latitude,car.longitude];
+		
+		var threshold = 0.0001;
+		
+		if(routes.length < 2){
+			return;
+		}
+		
+		routes[0].lat = position[0];
+		routes[0].lng = position[1];
+		
+		var distance = nodeDistance(routes[0].lat,routes[0].lng,routes[1].lat,routes[1].lng);
+		if(distance <= lastDistance[car.vin]){
+			lastDistance[car.vin] = distance;
+			
+		} else {
+			routes.reverse();
+			var first = routes.pop();
+			routes.pop();
+			routes.push(first);
+			routes.reverse();
+			if(routes.length < 2){
+				return;
+			}
+			lastDistance[car.vin] = nodeDistance(routes[0].lat,routes[0].lng,routes[1].lat,routes[1].lng);
+		}
+		l.setLatLngs(routes);
+	}
+
+	function toggleRoutes() {
+		if (routesEnabled) {
+			routesEnabled = false;
+			for ( var car in ambulanceRoutes) {
+				if (ambulanceRoutes[car] !== undefined) {
+					map.removeLayer(ambulanceRoutes[car]);
+				}
+			}
+			for ( var car in carRoutes) {
+				if (carRoutes[car] !== undefined) {
+					map.removeLayer(carRoutes[car]);
+				}
+			}
+		} else {
+			routesEnabled = true;
+			for ( var car in ambulanceRoutes) {
+				map.addLayer(ambulanceRoutes[car]);
+			}
+			for ( var car in carRoutes) {
+				map.addLayer(carRoutes[car]);
+			}
 		}
 	}
 
@@ -228,6 +352,8 @@ var TrafficMonitor = (function(conf) {
 		setClickAction : setClickAction,
 		update : update,
 		showEmergency : showEmergency,
+		updateRoute: updateRoute,
+		toggleRoutes: toggleRoutes,
 		refresh : refresh
 	};
 
