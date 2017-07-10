@@ -26,6 +26,13 @@ var TrafficMonitor = (function(conf) {
 	var carRoutes = [];
 	var lastDistance = [];  
 
+	// Heatmap
+	var heatmapEnabled = false;
+	var intensity = 0.2;
+	var heatRadius = 10;
+	var vehicleLocations = [];
+	var heat = {};
+
 	var currentPopupId; // Stores which vehicle or emergency (order) shows the pop-up.
 
 	var icon = {
@@ -281,7 +288,9 @@ var TrafficMonitor = (function(conf) {
 			updateCar(car);
 		}
 
-		removeRouteFromPast(car); 
+		removeRouteFromPast(car);
+
+		updateHeatmap(car);
 	}
 
 	function isAmbulance(car) {
@@ -289,6 +298,14 @@ var TrafficMonitor = (function(conf) {
 			return true;
 		} else {
 			return false;
+		}
+	}
+
+	// Heatmap
+	function updateHeatmap(car) {
+		vehicleLocations.push([ car.latitude, car.longitude, intensity ]);
+		if (heatmapEnabled) {
+			heat.addLatLng([ car.latitude, car.longitude, intensity ]);
 		}
 	}
 
@@ -399,6 +416,18 @@ var TrafficMonitor = (function(conf) {
 		}
 	}
 
+	function toggleHeatmap() {
+		if (heatmapEnabled) {
+			heatmapEnabled = false;
+			map.removeLayer(heat);
+			heat = {};
+		} else {
+			heatmapEnabled = true;
+			heat = L.heatLayer(vehicleLocations, {radius : heatRadius});
+			map.addLayer(heat);
+		}
+	}
+
 	return {
 		init : init,
 		setClickAction : setClickAction,
@@ -406,6 +435,7 @@ var TrafficMonitor = (function(conf) {
 		showEmergency : showEmergency,
 		updateRoute: updateRoute,
 		toggleRoutes: toggleRoutes,
+		toggleHeatmap: toggleHeatmap,
 		refresh : refresh
 	};
 

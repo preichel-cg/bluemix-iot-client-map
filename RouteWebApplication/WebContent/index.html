@@ -7,6 +7,7 @@
 <script src="js/bootstrap.min.js"></script>
 <script src="js/reconnecting-websocket.min.js"></script>
 <script src="js/leaflet.js"></script>
+<script src="js/leaflet-heat.js"></script>
 <script src="js/Leaflet.MakiMarkers.js"></script>
 <script src="js/MovingMarker.js"></script>
 <script src="js/TrafficMonitor.js"></script>
@@ -113,6 +114,12 @@
 		traffic.toggleRoutes();
 	}
 
+	var toggleHeatmap = function(event) {
+		//event.preventDefault();
+		$("#heatToggle").toggleClass("green");
+		traffic.toggleHeatmap();
+	}
+
 	$(document).ready(function() {
 
 		traffic.init();
@@ -136,6 +143,7 @@
 			<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 				<ul class="nav navbar-nav navbar-right">
 					<li><a href="#" id="routeToggle" onclick="toggleRoutes(event)">Toggle Routes</a></li>
+					<li><a href="#" id="heatToggle" onclick="toggleHeatmap(event)">Toggle Heatmap</a></li>
 				</ul>
 			</div><!-- /.navbar-collapse -->
 		</div>
