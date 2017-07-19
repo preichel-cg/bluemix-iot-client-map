@@ -7,9 +7,11 @@
 <script src="js/bootstrap.min.js"></script>
 <script src="js/reconnecting-websocket.min.js"></script>
 <script src="js/leaflet.js"></script>
+<script src="js/leaflet-heat.js"></script>
 <script src="js/Leaflet.MakiMarkers.js"></script>
 <script src="js/MovingMarker.js"></script>
 <script src="js/TrafficMonitor.js"></script>
+<script src="js/PositionCalculator.js"></script>
 <script src="js/jquery-1.10.2.js"></script>
 <title>London Traffic Control</title>
 <link rel="stylesheet" href="css/bootstrap.min.css" />
@@ -20,8 +22,8 @@
 	var traffic = TrafficMonitor({
 		map : "map",
 		controls : false,
-		latitude : 51.530784, 
-		longitude :-0.102517, 
+		latitude : 51.530784,
+		longitude : -0.102517,
 		zoom : 15,
 		zoomMinus : 8,
 		zoomPlus : 3
@@ -38,29 +40,53 @@
 	var websocketLocation = new ReconnectingWebSocket(
 			"wss://ambulance-main-iot.mybluemix.net/location", null, wsOptions);
 
- 	websocketLocation.onmessage = function(e) {
+	websocketLocation.onmessage = function(e) {
 
 		var d = JSON.parse(e.data).d;
 		if (d.hasOwnProperty('vin')) {
 			traffic.update(d);
 		}
-	
-	}; 
-	
-	
+
+	};
+
+	// Routes
+	var websocketRoutes = new ReconnectingWebSocket(
+			"wss://ambulance-main-iot.mybluemix.net/routes", null, wsOptions);
+
+	websocketRoutes.onmessage = function(e) {
+		var d = JSON.parse(e.data).d;
+		d.nodes = convertRoutesToArray(d.nodes);
+		if (d.hasOwnProperty('vin')) {
+			traffic.updateRoute(d);
+		}
+	}
+
+	// Converts the server data
+	var convertRoutesToArray = function(routes) {
+		var routesArray = [];
+		for ( var routeObjIndex in routes) {
+			var routeObj = routes[routeObjIndex];
+			var route = [];
+			route.push(routeObj.latitude);
+			route.push(routeObj.longitude);
+			routesArray.push(route);
+		}
+		return routesArray;
+	}
+
 	// TODO practice 3: Enter the path of configured Websocket for emergency-locations in your Node-RED instance
 	var websocketEmergency = new ReconnectingWebSocket(
 			"wss://ambulance-main-iot.mybluemix.net/emergency", null, wsOptions);
-	
- 	websocketEmergency.onmessage = function(e) {
+
+	websocketEmergency.onmessage = function(e) {
 		var d = JSON.parse(e.data).d;
 		if (d.hasOwnProperty('emergencyId')) {
 			traffic.showEmergency(d);
 		}
 
- 	};
+	};
 
- 	// send the position of emergency (lat und lng) to the REST service that you defined by clicking on the map 
+	// send the position of emergency (lat and lng) to the REST service that you defined by clicking on the map
 	traffic.setClickAction(function(lat, lng, id) {
 
 		var location = {
@@ -82,6 +108,18 @@
 
 	window.addEventListener("load", traffic.init, false);
 
+	var toggleRoutes = function(event) {
+		//event.preventDefault();
+		$("#routeToggle").toggleClass("green");
+		traffic.toggleRoutes();
+	}
+
+	var toggleHeatmap = function(event) {
+		//event.preventDefault();
+		$("#heatToggle").toggleClass("green");
+		traffic.toggleHeatmap();
+	}
+
 	$(document).ready(function() {
 
 		traffic.init();
@@ -102,6 +140,12 @@
 				<a class="navbar-brand" href="#"><img
 					src="images/capgeminiLogo.png"></a>
 			</div>
+			<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+				<ul class="nav navbar-nav navbar-right">
+					<li><a href="#" id="routeToggle" onclick="toggleRoutes(event)">Toggle Routes</a></li>
+					<li><a href="#" id="heatToggle" onclick="toggleHeatmap(event)">Toggle Heatmap</a></li>
+				</ul>
+			</div><!-- /.navbar-collapse -->
 		</div>
 	</nav>
 	<div class="my-tab-pane" id="section-1">

@@ -20,6 +20,21 @@ var TrafficMonitor = (function(conf) {
 	var circles = {};
 	var firstClicks = {};
 
+	// Routes
+	var routesEnabled = false;
+	var ambulanceRoutes = [];
+	var carRoutes = [];
+	var lastDistance = [];  
+
+	// Heatmap
+	var heatmapEnabled = false;
+	var intensity = 0.2;
+	var heatRadius = 10;
+	var vehicleLocations = [];
+	var heat = {};
+
+	var currentPopupId; // Stores which vehicle or emergency (order) shows the pop-up.
+
 	var icon = {
 		car : L.MakiMarkers.icon({
 			icon : "car",
@@ -134,11 +149,18 @@ var TrafficMonitor = (function(conf) {
 				order = L.marker([ emergency.latitude, emergency.longitude ], {
 					icon : icon.emergencyYellow
 				});
-
 				order.addTo(map);
 				orders[emergency.emergencyId] = order;
-
+				order.on('mouseover', function(e) {
+					currentPopupId = emergency.emergencyId;
+					order.openPopup();
+				});
+				order.on('click', function(e) { // Could use 'popupclose' here, but not for car markers.
+					currentPopupId = "-1";
+				});
 			}
+
+			order.bindPopup("<strong>Emergency" + "<br> Status: " + emergency.status + "</strong>");
 
 		} else if (status == "ONGING") {
 			var order = orders[emergency.emergencyId];
@@ -148,11 +170,18 @@ var TrafficMonitor = (function(conf) {
 					icon : icon.emergencyGreen
 				});
 				order.addTo(map);
-			} else {
+				orders[emergency.emergencyId] = order;
+				order.on('mouseover', function(e) {
+					currentPopupId = emergency.emergencyId;
+					order.openPopup();
+				});
+				order.on('click', function(e) {
+					currentPopupId = "-1";
+				});
 
+			} else {
 				order.setIcon(icon.emergencyGreen);
 			}
-			orders[emergency.emergencyId] = order;
 			
 			var newAmbulanceIcon = L.MakiMarkers.icon({
 				icon : "hospital",
@@ -163,8 +192,11 @@ var TrafficMonitor = (function(conf) {
 			ambulance.setIcon(newAmbulanceIcon);
 			ambulances[emergency.vin] = ambulance;
 
+			order.bindPopup("<strong>Emergency" + "<br> Status: " + emergency.status + "<br> Ambulance: " + emergency.vin + "</strong>");
+
 		} else if (status == "SOLVED") {
 			if (orders[emergency.emergencyId] !== undefined) {
+				orders[emergency.emergencyId].closePopup();
 				map.removeLayer(orders[emergency.emergencyId]);
 				delete orders[emergency.emergencyId];
 
@@ -172,6 +204,13 @@ var TrafficMonitor = (function(conf) {
 			ambulance.setIcon(icon.ambulance);
 			ambulances[emergency.vin] = ambulance;
 		}
+
+		if (currentPopupId == emergency.emergencyId) {
+			order.openPopup();
+		} else {
+			order.closePopup();
+		}
+
 	}
 
 	function drawCircle(lat, lng, radius, emergencyID) {
@@ -191,10 +230,23 @@ var TrafficMonitor = (function(conf) {
 			c.ts = new Date();
 			c.addTo(map);
 			ambulances[car.vin] = c;
+			c.on('mouseover', function(e) {
+				currentPopupId = car.vin;
+				c.openPopup();
+			});
+			c.on('click', function(e) { // Cannot use 'popupclose', because that is triggered continuously by c.closePopup();
+				currentPopupId = "-1";
+			});
 		}
-
 		c.moveTo([ car.latitude, car.longitude ], (new Date() - c.ts));
 		c.ts = new Date();
+
+		if (currentPopupId == car.vin) {
+			c.bindPopup("<strong>Latitude: " + car.latitude + "<br>Longitude: " + car.longitude + "<br>VIN: " + car.vin + "<br>IsFree: " + car.isFree + "</strong>");
+			c.openPopup();
+		} else {
+			c.closePopup();
+		}
 
 	}
 
@@ -209,17 +261,170 @@ var TrafficMonitor = (function(conf) {
 			c.ts = new Date();
 			c.addTo(map);
 			cars[car.vin] = c;
+			c.on('mouseover', function(e) {
+				currentPopupId = car.vin;
+				c.openPopup();
+			});
+			c.on('click', function(e) { // Cannot use 'popupclose', because that is triggered continuously by c.closePopup();
+				currentPopupId = "-1";
+			});
 		}
 		c.moveTo([ car.latitude, car.longitude ], (new Date() - c.ts));
 		c.ts = new Date();
 
+		if (currentPopupId == car.vin) {
+			c.bindPopup("<strong>Latitude: " + car.latitude + "<br>Longitude: " + car.longitude + "<br>VIN: " + car.vin + "</strong>");
+			c.openPopup();
+		} else {
+			c.closePopup();
+		}
+
 	}
 
 	function update(car) {
-		if (car.vin.indexOf("ambulance") > -1) {
+		if (isAmbulance(car)) {
 			updateAmbulance(car);
 		} else {
 			updateCar(car);
+		}
+
+		removeRouteFromPast(car);
+
+		updateHeatmap(car);
+	}
+
+	function isAmbulance(car) {
+		if (car.vin.indexOf("ambulance") > -1) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	// Heatmap
+	function updateHeatmap(car) {
+		vehicleLocations.push([ car.latitude, car.longitude, intensity ]);
+		if (heatmapEnabled) {
+			heat.addLatLng([ car.latitude, car.longitude, intensity ]);
+		}
+	}
+
+	// Routes
+	function drawRoute(car){
+		var l = {}
+		var lineColor = '';
+		
+		if(isAmbulance(car)){
+			l = ambulanceRoutes[car.vin];
+			lineColor = 'red';
+		} else { 
+			l = carRoutes[car.vin];
+			lineColor = 'blue';
+		}
+		
+		var latlongs = car.nodes;
+				
+		if (l === undefined) {
+			l = L.polyline(latlongs, {color: lineColor});
+			l.ts = new Date();
+			
+			if(isAmbulance(car)) {
+				ambulanceRoutes[car.vin] = l;
+			} else {
+				carRoutes[car.vin] = l;
+			}
+		}
+		
+		l.setLatLngs(latlongs);
+		l.ts = new Date();
+		
+		if(routesEnabled){
+			map.addLayer(l);
+		}
+	}
+	
+	function updateRoute(car) {
+		if(car.nodes.length < 2){ return; }
+		lastDistance[car.vin] = nodeDistance(car.nodes[0][0],car.nodes[0][1],car.nodes[1][0],car.nodes[1][1]);
+		drawRoute(car);
+	}
+	
+	function removeRouteFromPast(car) {
+		var l = {};
+		if(isAmbulance(car)){
+			l = ambulanceRoutes[car.vin];
+		} else {
+			l = carRoutes[car.vin];
+		}
+		
+		// if route is not set, skip.
+		if(l === undefined) {
+			return;
+		}
+		
+		var routes = l._latlngs;
+		var position = [car.latitude,car.longitude];
+		
+		var threshold = 0.0001;
+		
+		if(routes.length < 2){
+			return;
+		}
+		
+		routes[0].lat = position[0];
+		routes[0].lng = position[1];
+		
+		var distance = nodeDistance(routes[0].lat,routes[0].lng,routes[1].lat,routes[1].lng);
+		if(distance <= lastDistance[car.vin]){
+			lastDistance[car.vin] = distance;
+			
+		} else {
+			routes.reverse();
+			var first = routes.pop();
+			routes.pop();
+			routes.push(first);
+			routes.reverse();
+			if(routes.length < 2){
+				return;
+			}
+			lastDistance[car.vin] = nodeDistance(routes[0].lat,routes[0].lng,routes[1].lat,routes[1].lng);
+		}
+		l.setLatLngs(routes);
+	}
+
+	function toggleRoutes() {
+		if (routesEnabled) {
+			routesEnabled = false;
+			for ( var car in ambulanceRoutes) {
+				if (ambulanceRoutes[car] !== undefined) {
+					map.removeLayer(ambulanceRoutes[car]);
+				}
+			}
+			for ( var car in carRoutes) {
+				if (carRoutes[car] !== undefined) {
+					map.removeLayer(carRoutes[car]);
+				}
+			}
+		} else {
+			routesEnabled = true;
+			for ( var car in ambulanceRoutes) {
+				map.addLayer(ambulanceRoutes[car]);
+			}
+			for ( var car in carRoutes) {
+				map.addLayer(carRoutes[car]);
+			}
+		}
+	}
+
+	function toggleHeatmap() {
+		if (heatmapEnabled) {
+			heatmapEnabled = false;
+			map.removeLayer(heat);
+			heat = {};
+		} else {
+			heatmapEnabled = true;
+			heat = L.heatLayer(vehicleLocations, {radius : heatRadius});
+			map.addLayer(heat);
 		}
 	}
 
@@ -228,6 +433,9 @@ var TrafficMonitor = (function(conf) {
 		setClickAction : setClickAction,
 		update : update,
 		showEmergency : showEmergency,
+		updateRoute: updateRoute,
+		toggleRoutes: toggleRoutes,
+		toggleHeatmap: toggleHeatmap,
 		refresh : refresh
 	};
 
